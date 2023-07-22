@@ -1,0 +1,8 @@
+:root {
+    --bgclr: #222425;
+    --txtclr: #dedcd9;
+
+    background-color: var(--bgclr);
+    color: var(--txtclr);
+    font-family: Noto Sans, sans-serif;
+}

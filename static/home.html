@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="/default.css">
+
+<title>Umfrager</title>
+
+<style>
+.center {
+  text-align: center;
+}
+
+table, th, td {
+  border: 1px solid;
+  border-collapse: collapse;
+  padding: 5px;
+}
+
+th {
+  padding: 12px;
+  width: 25%;
+}
+</style>
+
+</header>
+
+<body>
+<div class="center">
+  <h1>Umfrager</h1>
+
+  <br>
+
+  <h2>Bewerte den Namen des Spiels</h2>
+  <p>In dem 2D Spiel konstruieren die Spieler Raumschiffe im Weltall etc.</p>
+</div>
+
+<br><br>
+
+<form id="form">
+  <label for="name">Name</label><br>
+  <input type="text" id="name"><br><br>
+
+  <table id="table">
+    <tr>
+      <th>Name</th>
+      <th>Punkte (1-5)</th>
+    </tr>
+  </table>
+
+  <input type="submit" value="Submit">
+</form>
+
+</body>
+
+<script> //utility
+  const table = document.getElementById("table");
+  let game_names = [];
+
+  function dom_add_game_name(game_name) {
+      game_names.push(game_name);
+
+      let tr = document.createElement("tr");
+      table.appendChild(tr);
+
+      let tdname = document.createElement("td");
+      tdname.innerText = game_name;
+      tr.appendChild(tdname);
+
+      let tdpoints = document.createElement("td");
+      tr.appendChild(tdpoints);
+
+      let points_input = document.createElement("input");
+      points_input.setAttribute("type", "number");
+      points_input.setAttribute("id", game_name);
+      tdpoints.appendChild(points_input);
+  }
+
+  class SurveyJson {
+      constructor(game_names) {
+        this.name = document.getElementById("name").value;
+
+        let game_name_objs = [];
+        for (const game_name of game_names) {
+          let game_name_obj = new GameName(game_name, document.getElementById(game_name).value);
+          game_name_objs.push(game_name_obj);
+        }
+        this.game_names = game_name_objs;
+      }
+    }
+
+  class GameName {
+    constructor(name, points) {
+      this.name = name;
+      this.points = points;
+    }
+  }
+</script>
+
+<script> //events
+
+  // fetches the game names
+  window.onload = function() {
+    fetch("/game_names")
+    .then((response) => response.json())
+    .then(function(json) {
+      json.game_names.forEach(dom_add_game_name);
+    });   
+  };
+
+
+  // submits the survey data
+  var form = document.getElementById("form");
+  form.addEventListener("submit", (e) => {
+      e.preventDefault();
+
+      console.log(new SurveyJson(game_names));
+
+      fetch("/survey_data", {
+        method: "POST",
+        headers: { "Content-type": "application/json" },
+        body: JSON.stringify(new SurveyJson(game_names)),
+      }); //TODO catch errors
+
+      //window.location.href = "/thanks";
+  });
+
+</script>
+
+</html>
