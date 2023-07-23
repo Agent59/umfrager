@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="/default.css">
+
+<title>Ergebnisse</title>
+
+<style>
+.center {
+  text-align: center;
+}
+
+table, th, td {
+  border: 1px solid;
+  border-collapse: collapse;
+  padding: 5px;
+}
+
+th {
+  padding: 12px;
+  width: 25%;
+}
+</style>
+
+</header>
+
+<body>
+<div class="center">
+  <h1>Umfrager</h1>
+  <br>
+  <h2>Ergebnisse</h2>
+</div>
+
+<br><br>
+
+<table id="table">
+  <tr id="headers">
+    <th>Name</th>
+  </tr>
+</table>
+
+</body>
+
+<script> //utility
+  const table = document.getElementById("table");
+  const headers = document.getElementById("headers");
+
+  const game_names = [];
+  const users = []; // their ids
+
+  function build_table(usrpoints) {
+    usrpoints.sort((a,b) => (a.gamename > b.gamename) ? 1 : ((b.gamename > a.last_nom) ? -1 : 0));
+
+    let last_game_name = usrpoints[0].gamename;
+    add_game_name(usrpoints[0].gamename);
+      
+    for (up of usrpoints) {
+      console.log(up);
+
+      if (last_game_name !== up.gamename) {
+          add_game_name(up.gamename);
+          last_game_name = up.gamename;
+      }
+
+      if (!users.includes(up.usr_id)) { add_user(up.usr_id, up.usr_name); }
+    }
+
+    let i = 0;
+    for (let row = 0; row < game_names.length; row++) {
+      for (let col = 0; col < users.length; col++) {
+        let points = "/";
+
+        let up = usrpoints[i];
+          
+        if ((up != null) && (up.gamename == game_names[row])) {
+          i++;
+          points = up.points;
+        }
+          
+        add_points(game_names[row], points);
+      }
+    }
+  }
+
+  function add_game_name(name) {
+    game_names.push(name);
+
+    let tr = document.createElement("tr");
+    tr.setAttribute("id", name);
+    table.appendChild(tr);
+
+    let td = document.createElement("td");
+    td.innerText = name;
+    td.style.fontWeight = "bold";
+    tr.appendChild(td);
+  }
+
+  function add_user(user_id, user_name) {
+    users.push(user_id);
+
+    let new_header = document.createElement("th");
+    new_header.innerText = user_name + "\n(" + user_id + ")";
+    new_header.setAttribute("id", user_id);
+    headers.appendChild(new_header);
+  }
+
+  function add_points(game_name, points) {
+    let td = document.createElement("td");
+    td.innerText = points;
+    let gname_el = document.getElementById(game_name);
+    gname_el.appendChild(td);
+  }
+</script>
+
+<script> //events
+
+  // fetches the survey results
+  window.onload = function() {
+    fetch("/get_results_data")
+    .then((response) => response.json())
+    .then((json) => build_table(json.usrpoints))
+  };
+</script>
+
+</html>

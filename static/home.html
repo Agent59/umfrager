@@ -21,6 +21,26 @@ th {
   padding: 12px;
   width: 25%;
 }
+
+#submit {
+  background: rgba(0, 0, 0 ,0);
+  color: var(--txtclr);
+  padding: 10px;
+  border-radius: 8px;
+  font-weight: bold;
+}
+
+#submit:hover {
+  cursor: pointer;
+  color: var(--bgclr);
+  background: rgba(0, 0, 0, 1);
+  background-color: var(--txtclr);
+}
+
+#error {
+  color: red;
+  font-weight: bold;
+}
 </style>
 
 </header>
@@ -38,7 +58,7 @@ th {
 <br><br>
 
 <form id="form">
-  <label for="name">Name</label><br>
+  <label for="name">Nutzername</label><br>
   <input type="text" id="name"><br><br>
 
   <table id="table">
@@ -48,7 +68,9 @@ th {
     </tr>
   </table>
 
-  <input type="submit" value="Submit">
+  <br>
+  <input id="submit" type="submit" value="Abschicken">
+  <p id="error"></p>
 </form>
 
 </body>
@@ -73,6 +95,8 @@ th {
       let points_input = document.createElement("input");
       points_input.setAttribute("type", "number");
       points_input.setAttribute("id", game_name);
+      points_input.setAttribute("min", 1);
+      points_input.setAttribute("max", 5);
       tdpoints.appendChild(points_input);
   }
 
@@ -82,7 +106,14 @@ th {
 
         let game_name_objs = [];
         for (const game_name of game_names) {
-          let game_name_obj = new GameName(game_name, document.getElementById(game_name).value);
+          let points = Number(document.getElementById(game_name).value);
+
+          if (!(Number.isInteger(points)) || points < 1 || points > 5) {
+            let error = document.getElementById("error");
+            error.innerText = "Punkte müssen natürliche Zahlen sein und zwischen 1 und 5 liegen!";
+            return {};
+          }
+          let game_name_obj = new GameName(game_name, points);
           game_name_objs.push(game_name_obj);
         }
         this.game_names = game_name_objs;
@@ -112,17 +143,23 @@ th {
   // submits the survey data
   var form = document.getElementById("form");
   form.addEventListener("submit", (e) => {
-      e.preventDefault();
+    e.preventDefault();
 
-      console.log(new SurveyJson(game_names));
+    let error = document.getElementById("error");
+    error.innerText = "";
 
-      fetch("/survey_data", {
-        method: "POST",
-        headers: { "Content-type": "application/json" },
-        body: JSON.stringify(new SurveyJson(game_names)),
-      }); //TODO catch errors
-
-      //window.location.href = "/thanks";
+    fetch("/survey_data", {
+      method: "POST",
+      headers: {
+        "Content-type": "application/json"
+      },
+      body: JSON.stringify(new SurveyJson(game_names)),
+    })
+    .then(function(response) {
+      if (response.ok) {
+        window.location.href = "/thanks";
+      }
+    });
   });
 
 </script>

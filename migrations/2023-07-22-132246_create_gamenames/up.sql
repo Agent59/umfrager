@@ -1,0 +1,3 @@
+CREATE TABLE gamename (
+  name TEXT NOT NULL PRIMARY KEY
+)

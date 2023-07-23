@@ -1,11 +1,12 @@
-use actix_web::{get, post, web, Responder, Result, HttpResponse};
+use actix_web::{get, post, web, Responder, Result, HttpResponse, error};
 use actix_files::NamedFile;
 use serde::{Deserialize, Serialize};
-use serde_json;
-use std::fs::File;
+
+use crate::{DbPool, actions, models::NewUsrPoints};
 
 pub fn home_conf(cfg: &mut web::ServiceConfig) {
     cfg.service(home_page);
+    cfg.service(thanks_page);
     cfg.service(survey_data);
     cfg.service(game_names);
 }
@@ -16,11 +17,28 @@ async fn home_page() -> Result<NamedFile> {
     Ok(NamedFile::open(path)?)
 }
 
+#[get("/thanks")]
+async fn thanks_page() -> Result<NamedFile> {
+    let path = "./static/thanks.html";
+    Ok(NamedFile::open(path)?)
+}
+
 #[get("/game_names")]
-async fn game_names() -> Result<impl Responder> {
-    let game_names_vec: Vec<String> = (vec!["test1", "test2", "test3"])
-        .into_iter().map(|s| String::from(s)).collect();
-    Ok(web::Json(GameNamesJson { game_names: game_names_vec }))
+async fn game_names(pool: web::Data<DbPool>) -> Result<impl Responder> {
+    let game_names_option = web::block(move || {
+        let mut conn = pool.get()?;
+        actions::get_all_game_names(&mut conn)
+    })
+    .await?
+    .map_err(error::ErrorInternalServerError)?;
+
+    match game_names_option {
+        Some(game_names_vec) => {
+            let game_names_string_vec = game_names_vec.iter().map(|gn| gn.name.clone()).collect();
+            Ok(web::Json(GameNamesJson { game_names: game_names_string_vec}))
+        },
+        None => Err(error::ErrorInternalServerError("game names table empty")),
+    }
 }
 
 #[derive(Debug, Serialize)]
@@ -30,12 +48,26 @@ struct GameNamesJson {
 
 
 #[post("/survey_data")]
-async fn survey_data(json: web::Json<SurveyJson>) -> Result<impl Responder> {
-    println!("{:?}", json);
-
-    let writer = File::create(&json.name)?;
-    let writer = zstd::Encoder::new(writer, 0)?.auto_finish();
-    serde_json::to_writer(writer, &json)?;
+async fn survey_data(pool: web::Data<DbPool>, json: web::Json<SurveyJson>) -> Result<impl Responder> {
+    web::block(move || {
+        let mut conn = pool.get()?;
+        match actions::insert_new_user(&mut conn, &json.name) {
+            Ok(new_user) => {
+                let new_usrpoints_vec = json.game_names.iter()
+                    .map(|gn|
+                        NewUsrPoints {
+                            points: gn.points,
+                            gamename_id: gn.name.clone(),
+                            usr_id: new_user.id.clone(),
+                        })
+                    .collect();
+                actions::multi_insert_new_usrpoints(&mut conn, new_usrpoints_vec)
+            },
+            Err(e) => Err(e),
+        }
+    })
+    .await?
+    .map_err(error::ErrorInternalServerError)?;
 
     Ok(HttpResponse::Ok())
 }
@@ -43,11 +75,11 @@ async fn survey_data(json: web::Json<SurveyJson>) -> Result<impl Responder> {
 #[derive(Debug, Deserialize, Serialize)]
 struct SurveyJson {
     name: String,
-    game_names: Vec<GameName>,
+    game_names: Vec<GameNameJson>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
-struct GameName {
+struct GameNameJson {
     name: String,
-    points: u8,
+    points: i32,
 }
